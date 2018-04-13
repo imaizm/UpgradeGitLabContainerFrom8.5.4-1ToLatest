@@ -1,0 +1,22 @@
+---
+- name: add docker group
+  group: name=docker
+
+- name: add users to docker group
+  user: name={{config_user}} groups=docker append=yes
+
+- name: install docker
+  yum: name=docker state=latest
+
+- name: enable docker
+  service: name=docker enabled=yes state=started
+
+- name: check docker-compose installed
+  stat: path=/usr/local/bin/docker-compose
+  register: is_exists
+
+- name: install docker-compose
+  shell: |
+    curl -L https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+  when: is_exists.stat.md5 is not defined

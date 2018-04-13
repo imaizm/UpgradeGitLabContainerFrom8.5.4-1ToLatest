@@ -1,0 +1,14 @@
+[Unit]
+Description=DevOps Pack on Docker
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/local/bin/docker-compose -f {{ devops_pack_path }}/docker-compose.yml stop
+ExecStart=/usr/local/bin/docker-compose -f {{ devops_pack_path }}/docker-compose.yml up
+ExecStop=/usr/local/bin/docker-compose -f {{ devops_pack_path }}/docker-compose.yml stop
+TimeoutSec=1200
+
+[Install]
+WantedBy=multi-user.target

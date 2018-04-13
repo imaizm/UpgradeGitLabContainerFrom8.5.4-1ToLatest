@@ -1,0 +1,28 @@
+---
+- hosts: target
+  become: true
+  user: vagrant
+  vars:
+    config_user: "vagrant"
+    docker_compose_version: "1.13.0"
+    devops_pack_path: "/var/lib/docker/data/devops-pack"
+    postgresql_for_gitlab_version: "9.5-1"
+    postgresql_for_gitlab_path: "/var/lib/docker/data/postgresql_for_gitlab"
+    postgresql_for_gitlab_db_name: "gitlab"
+    postgresql_for_gitlab_user: "gitlab"
+    # postgresql_for_gitlab_pass: ""
+    postgresql_for_gitlab_port: 8003
+    redis_for_gitlab_version: "latest"
+    redis_for_gitlab_path: "/var/lib/docker/data/redis_for_gitlab"
+    gitlab_version: "9.5.5"
+    gitlab_version_prev: "8.5.4-1"
+    gitlab_hostname: "localhost"
+    gitlab_path: "/var/lib/docker/data/gitlab"
+    gitlab_http_port: 8001
+    gitlab_ssh_port: 8002
+    # gitlab_smtp_user: ""
+    # gitlab_smtp_pass: ""
+  vars_files:
+    - env_vars.yml
+  roles:
+    - docker-devops-pack_upgrade-gitlab

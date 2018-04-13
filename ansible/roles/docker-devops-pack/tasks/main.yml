@@ -1,0 +1,28 @@
+---
+- name: mkdir required dirs
+  file: path={{ item }} state=directory recurse=yes mode=0755 owner={{config_user}} group={{config_user}}
+  with_items:
+    - "{{ devops_pack_path }}"
+    - "{{ postgresql_for_gitlab_path }}"
+    - "{{ redis_for_gitlab_path }}"
+    - "{{ gitlab_path }}"
+
+- name: pull docker images
+  shell: docker pull {{ item }}
+  with_items:
+    - "sameersbn/postgresql:{{ postgresql_for_gitlab_version }}"
+    - "sameersbn/redis:{{ redis_for_gitlab_version }}"
+    - "sameersbn/gitlab:{{ gitlab_version }}"
+
+- name: set docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ devops_pack_path }}/docker-compose.yml"
+    owner: "{{config_user}}"
+    group: "{{config_user}}"
+
+- name: configure docker container services
+  template: src=docker-devops-pack.service.j2 dest=/usr/lib/systemd/system/docker-devops-pack.service
+
+- name: enable docker container services
+  service: name=docker-devops-pack enabled=yes state=started

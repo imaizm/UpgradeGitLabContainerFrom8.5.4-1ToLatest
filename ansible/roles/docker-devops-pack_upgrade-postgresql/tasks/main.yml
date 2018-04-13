@@ -1,0 +1,21 @@
+---
+- name: pull docker images
+  shell: docker pull {{ item }}
+  with_items:
+    - "sameersbn/postgresql:{{ postgresql_for_gitlab_version }}"
+
+- name: stop docker compose services
+  service: name=docker-devops-pack state=stopped
+
+- name: remove old image
+  shell: docker rm -v gitlab-postgresql
+
+- name: set docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ devops_pack_path }}/docker-compose.yml"
+    owner: "{{config_user}}"
+    group: "{{config_user}}"
+
+- name: start docker container services
+  service: name=docker-devops-pack state=started

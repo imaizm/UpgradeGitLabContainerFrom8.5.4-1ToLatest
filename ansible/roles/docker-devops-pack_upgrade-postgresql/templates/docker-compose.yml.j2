@@ -1,0 +1,71 @@
+version: '2.1'
+
+services:
+  gitlab-redis:
+    restart: always
+    image: sameersbn/redis:{{ redis_for_gitlab_version }}
+    container_name: gitlab-redis
+    command:
+    - --loglevel warning
+    volumes:
+    - {{ redis_for_gitlab_path }}:/var/lib/redis:z
+
+  gitlab-postgresql:
+    restart: always
+    image: sameersbn/postgresql:{{ postgresql_for_gitlab_version }}
+    container_name: gitlab-postgresql
+    volumes:
+    - {{ postgresql_for_gitlab_path }}:/var/lib/postgresql:z
+    ports:
+    - "{{ postgresql_for_gitlab_port }}:5432"
+    environment:
+    - DB_NAME={{ postgresql_for_gitlab_db_name }}
+    - DB_USER={{ postgresql_for_gitlab_user }}
+    - DB_PASS={{ postgresql_for_gitlab_pass }}
+    - DB_EXTENSION=pg_trgm
+    healthcheck:
+      test: ["CMD-SHELL", "psql -h 'localhost' -U 'postgres' -c '\\l'"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+
+  gitlab:
+    restart: always
+    image: sameersbn/gitlab:{{ gitlab_version }}
+    container_name: gitlab
+    depends_on:
+      gitlab-redis:
+        condition: service_started
+      gitlab-postgresql:
+        condition: service_healthy
+    ports:
+    - "{{ gitlab_http_port }}:80"
+    - "{{ gitlab_ssh_port }}:22"
+    volumes:
+    - {{ gitlab_path }}:/home/git/data:z
+    environment:
+    - DEBUG=false
+
+    - DB_ADAPTER=postgresql
+    - DB_HOST=gitlab-postgresql
+    - DB_PORT=5432
+    - DB_NAME={{ postgresql_for_gitlab_db_name }}
+    - DB_USER={{ postgresql_for_gitlab_user }}
+    - DB_PASS={{ postgresql_for_gitlab_pass }}
+
+    - REDIS_HOST=gitlab-redis
+    - REDIS_PORT=6379
+
+    - TZ=Asia/Tokyo
+    - GITLAB_TIMEZONE=Tokyo
+
+    - GITLAB_HTTPS=false
+    - SSL_SELF_SIGNED=false
+
+    - GITLAB_HOST={{ gitlab_hostname }}
+    - GITLAB_PORT={{ gitlab_http_port }}
+    - GITLAB_SSH_PORT={{ gitlab_ssh_port }}
+    - GITLAB_SECRETS_DB_KEY_BASE=long-and-random-alpha-numeric-string
+
+    - SMTP_USER={{ gitlab_smtp_user }}
+    - SMTP_PASS={{ gitlab_smtp_pass }}

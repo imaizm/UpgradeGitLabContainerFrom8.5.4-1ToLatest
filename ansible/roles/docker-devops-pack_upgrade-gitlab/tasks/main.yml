@@ -1,0 +1,90 @@
+---
+- name: pull docker images
+  shell: docker pull {{ item }}
+  with_items:
+    - "sameersbn/gitlab:{{ gitlab_version }}"
+
+- name: stop docker compose services
+  service: name=docker-devops-pack state=stopped
+
+- name: remove images
+  shell: docker rm {{ item }}
+  with_items:
+    - "gitlab"
+    - "gitlab-postgresql"
+    - "gitlab-redis"
+
+- name: start gitlab-redis
+  shell: |
+    docker run -d \
+      --restart always \
+      --name gitlab-redis \
+      --volume {{ redis_for_gitlab_path }}:/var/lib/redis:z \
+      sameersbn/redis:{{ redis_for_gitlab_version }}
+
+- name: start gitlab-postgresql
+  shell: |
+    docker run -itd \
+      --restart always \
+      --name gitlab-postgresql \
+      --publish {{ postgresql_for_gitlab_port }}:5432 \
+      --volume {{ postgresql_for_gitlab_path }}:/var/lib/postgresql:z \
+      --env DB_NAME={{ postgresql_for_gitlab_db_name }} \
+      --env DB_USER={{ postgresql_for_gitlab_user }} \
+      --env DB_PASS={{ postgresql_for_gitlab_user }} \
+      --env DB_EXTENSION=pg_trgm \
+      sameersbn/postgresql:{{ postgresql_for_gitlab_version }}
+
+- name: start gitlab for create backup
+  shell: |
+    docker run \
+      --rm \
+      --name gitlab \
+      --volume {{ gitlab_path }}:/home/git/data:z \
+      --link gitlab-postgresql:postgresql \
+      --link gitlab-redis:redisio \
+      --env DEBUG=false \
+      --env DB_ADAPTER=postgresql \
+      --env DB_HOST=gitlab-postgresql \
+      --env DB_PORT=5432 \
+      --env DB_NAME={{ postgresql_for_gitlab_db_name }} \
+      --env DB_USER={{ postgresql_for_gitlab_user }} \
+      --env DB_PASS={{ postgresql_for_gitlab_pass }} \
+      --env REDIS_HOST=gitlab-redis \
+      --env REDIS_PORT=6379 \
+      --env TZ=Asia/Tokyo \
+      --env GITLAB_TIMEZONE=Tokyo \
+      --env GITLAB_HTTPS=false \
+      --env SSL_SELF_SIGNED=false \
+      --env GITLAB_HOST={{ gitlab_hostname }} \
+      --env GITLAB_PORT={{ gitlab_http_port }} \
+      --env GITLAB_SSH_PORT={{ gitlab_ssh_port }} \
+      --env GITLAB_SECRETS_DB_KEY_BASE=long-and-random-alpha-numeric-string \
+      --env GITLAB_SECRETS_SECRET_KEY_BASE=long-and-random-alpha-numeric-string \
+      --env GITLAB_SECRETS_OTP_KEY_BASE=long-and-random-alpha-numeric-string \
+      --env SMTP_USER={{ gitlab_smtp_user }} \
+      --env SMTP_PASS={{ gitlab_smtp_pass }} \
+      sameersbn/gitlab:{{ gitlab_version_prev }} \
+      app:rake gitlab:backup:create
+
+- name: stop images
+  shell: docker stop {{ item }}
+  with_items:
+    - "gitlab-postgresql"
+    - "gitlab-redis"
+
+- name: remove images
+  shell: docker rm {{ item }}
+  with_items:
+    - "gitlab-postgresql"
+    - "gitlab-redis"
+
+- name: set docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ devops_pack_path }}/docker-compose.yml"
+    owner: "{{config_user}}"
+    group: "{{config_user}}"
+
+- name: start docker container services
+  service: name=docker-devops-pack state=started
